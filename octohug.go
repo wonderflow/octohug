@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var octopressPostsDirectory string
@@ -153,36 +154,57 @@ func visit(path string, fileInfo os.FileInfo, err error) error {
 				}
 				hugoFileWriter.WriteString("\"" + matches[1] + "\"")
 				firstTagAdded = true
+			} else {
+
+				tag := strings.Replace(matches[1], "'", "", -1)
+				tag = strings.Replace(tag, "\"", "", -1)
+				hugoFileWriter.WriteString("\"" + tag + "\"")
+				firstTagAdded = true
 			}
-			tag := strings.Replace(matches[1], "'", "", -1)
-			tag = strings.Replace(tag, "\"", "", -1)
-			hugoFileWriter.WriteString("\"" + tag + "\"")
-			firstTagAdded = true
 		} else if strings.Contains(octopressLineAsString, "date: ") {
 			parts := strings.Split(octopressLineAsString, " ")
-			hugoFileWriter.WriteString("date = \"" + parts[1] + "\"\n")
+			date := strings.Join(parts[1:3], " ")
+			//date = "2012-07-04 16:14:02+00:00"
+			//date: 2019-03-26T08:47:11+01:00
+			tm, err := time.Parse("2006-01-02 15:04:05Z07:00", date)
+			if err != nil {
+				tm, err = time.Parse("2006-01-02 15:04:05", date)
+			}
+			if err != nil {
+				hugoFileWriter.WriteString("date = \"" + parts[1] + "\"\n")
+			} else {
+				hugoFileWriter.WriteString("date = \"" + tm.Format(time.RFC3339) + "\"\n")
+			}
 			octoSlugDate := strings.Replace(parts[1], "-", "/", -1)
 			octoFriendlySlug := octoSlugDate + "/" + octopressFilenameWithoutExtension
 			hugoFileWriter.WriteString("slug = \"" + octoFriendlySlug + "\"\n")
 		} else if strings.Contains(octopressLineAsString, "title: ") {
+			parts := strings.Split(octopressLineAsString, ": ")
+			if strings.HasPrefix(parts[1], "\"") {
+				hugoFileWriter.WriteString("title = " + parts[1] + "\n")
+			} else {
+				hugoFileWriter.WriteString("title = \"" + parts[1] + "\"\n")
+			}
 			// to keep the urls the same as octopress, the title
 			// needs to be the filename
-			parts := strings.Split(octopressFilenameWithoutExtension, "-")
-			hugoFileWriter.WriteString("title = \"")
-			firstPart := true
-			for _, part := range parts {
-				if !firstPart {
-					hugoFileWriter.WriteString(" ")
-				}
-				hugoFileWriter.WriteString(part)
-				firstPart = false
-			}
-			hugoFileWriter.WriteString("\"\n")
+			//parts := strings.Split(octopressFilenameWithoutExtension, "-")
+			//hugoFileWriter.WriteString("title = \"")
+			//firstPart := true
+			//for _, part := range parts {
+			//	if !firstPart {
+			//		hugoFileWriter.WriteString(" ")
+			//	}
+			//	hugoFileWriter.WriteString(part)
+			//	firstPart = false
+			//}
+			//hugoFileWriter.WriteString("\"\n")
 		} else if strings.Contains(octopressLineAsString, "description: ") {
 			parts := strings.Split(octopressLineAsString, ": ")
-			hugoFileWriter.WriteString("description = " + parts[1] + "\n")
+			hugoFileWriter.WriteString("description = \"" + parts[1] + "\"\n")
 		} else if strings.Contains(octopressLineAsString, "layout: ") {
 		} else if strings.Contains(octopressLineAsString, "author: ") {
+			parts := strings.Split(octopressLineAsString, ": ")
+			hugoFileWriter.WriteString("author = \"" + parts[1] + "\"\n")
 		} else if strings.Contains(octopressLineAsString, "comments: ") {
 		} else if strings.Contains(octopressLineAsString, "slug: ") {
 		} else if strings.Contains(octopressLineAsString, "wordpress_id: ") {
